@@ -10,6 +10,7 @@ public class Restaurant {
     boolean isItFirstOrder = true;
     int orderNr = 0;
     double priceForAddedIngredient = 0.9;
+    Register register = new Register(this);
 
     public int addCustomerAndGetId(String name, String location) {
         int id = 0;
@@ -103,6 +104,7 @@ public class Restaurant {
     }
 
     public void addToOrder(int customerId, boolean isThereAChange, int menuNumber) {
+
         if (isItFirstOrder) {
             createOrder(customerId);
             isItFirstOrder = false;
@@ -114,6 +116,7 @@ public class Restaurant {
                 sql = "INSERT INTO `order_details`(`order_nr`, `menu_nr`, `price`) VALUES " +
                         "(" + orderNr + "," + menuNumber + ",(SELECT price from menu WHERE number = " + menuNumber + "))";
                 statement.executeUpdate(sql);
+                addToConsumedIngredients(menuNumber);
                 connection.close();
             } catch (SQLException ex) {
                 ex.fillInStackTrace();
@@ -139,10 +142,36 @@ public class Restaurant {
                 sql = "INSERT INTO `order_details`(`order_nr`, `menu_nr`, `price`) VALUES " +
                         "(" + orderNr + "," + menuNumber + "," + newPrice + ")";
                 statement.executeUpdate(sql);
+                addToConsumedIngredients(menuNumber);
                 connection.close();
             } catch (SQLException ex) {
                 ex.fillInStackTrace();
             }
+        }
+    }
+    public void addToConsumedIngredients(int menuNumber){
+        //here I insert the amount of ingredients of a menu into table ingredient
+        int[] ingredientNumbers = new int[15];
+        int i = 0;
+        try {
+            sql = "SELECT ingredient_number FROM menu_ingredient WHERE menu_number = " + menuNumber + "";
+            ResultSet rs = statement.executeQuery(sql);
+            while (rs.next()) {
+                ingredientNumbers[i] = rs.getInt("ingredient_number");
+                i++;
+            }
+            for(int j = 0; j < ingredientNumbers.length; j++) {
+                if(ingredientNumbers[j] != 0) {
+                    sql = "UPDATE ingredient set consumed = (consumed+1) WHERE ingredient.number = " + ingredientNumbers[j] + "";
+                    statement.executeUpdate(sql);
+                }
+                else{
+                    break;
+                }
+            }
+        }
+        catch (SQLException ex){
+            ex.printStackTrace();
         }
     }
     public void addToChanges(int ingredientNumber, int menuNumber, int customerId, boolean getsRemoved, boolean getsAdded) {
@@ -156,6 +185,15 @@ public class Restaurant {
             sql = "INSERT INTO `changes`(`order_nr`, `menu_nr`, `ingredient_nr`, `added`, `removed`) VALUES " +
                     "(" + orderNr + "," + menuNumber + "," + ingredientNumber + "," + getsAdded + "," + getsRemoved + ")";
             statement.executeUpdate(sql);
+            //here I add or remove the changed ingredient from table ingredient
+            if(getsAdded) {
+                sql = "UPDATE ingredient set consumed = (consumed+1) WHERE ingredient.number = " + ingredientNumber + "";
+                statement.executeUpdate(sql);
+            }
+            else if(getsRemoved){
+                sql = "UPDATE ingredient set consumed = (consumed-1) WHERE ingredient.number = " + ingredientNumber + "";
+                statement.executeUpdate(sql);
+            }
             connection.close();
         } catch (SQLException ex) {
             ex.fillInStackTrace();
@@ -216,62 +254,11 @@ public class Restaurant {
             ex.fillInStackTrace();
         }
     }
-    public void calculateTotalPrice(){
-        try {
-            connection = DriverManager.getConnection(url);
-            statement = connection.createStatement();
-            sql = "UPDATE orders SET total_price =((SELECT sum(order_details.price) from order_details " +
-                    "WHERE order_nr = "+ orderNr +") + (SELECT orders.deliver_fee from orders " +
-                    "WHERE order_nr = "+ orderNr +")) WHERE order_nr = " + orderNr +"";
-            statement.executeUpdate(sql);
-            connection.close();
-        } catch (SQLException ex) {
-            ex.fillInStackTrace();
-        }
+    public void calculateTotalPrice() {
+        register.calculateTotalPrice(orderNr);
     }
-    public void showBill() {
-        String menuName = "";
-        double menuPrice = 0;
-        double totalPrice = 0;
-        double deliverFee = 0;
-        int addedCount = 0;
-        try {
-            connection = DriverManager.getConnection(url);
-            statement = connection.createStatement();
-            sql = "SELECT menu.name, menu.price " +
-                    "FROM order_details " +
-                    "INNER JOIN menu ON order_details.menu_nr = menu.number " +
-                    "WHERE order_nr = " + orderNr + "";
-            ResultSet rs = statement.executeQuery(sql);
-            System.out.println("Ihre Bestellung:");
-            while (rs.next()) {
-                menuName = rs.getString("name");
-                menuPrice = rs.getDouble("price");
-                System.out.println(menuName + " " + menuPrice + " €");
-            }
-            showChanges();
-            //at the end of Method show Changes connection is closed
-            connection = DriverManager.getConnection(url);
-            statement = connection.createStatement();
-            sql = "SELECT count(changes.added) FROM `changes` " +
-                    "WHERE added = 1 AND order_nr = " + orderNr + "";
-            rs = statement.executeQuery(sql);
-            rs.next();
-            addedCount = rs.getInt(1);
-            System.out.println(addedCount +" * "+ priceForAddedIngredient + " = " + (addedCount*priceForAddedIngredient)+" €");
-            sql = "SELECT total_price, deliver_fee from orders WHERE order_nr = "+ orderNr +"";
-            rs = statement.executeQuery(sql);
-            while(rs.next()){
-                totalPrice = rs.getDouble("total_price");
-                deliverFee = rs.getDouble("deliver_fee");
-            }
-            System.out.println("Zustellgebühr:\t"+deliverFee + " €");
-            System.out.println("-------------------------------");
-            System.out.println("Gesamtpreis:\t" +totalPrice + " €");
-            connection.close();
-        } catch (SQLException ex) {
-            ex.fillInStackTrace();
-        }
+    public void showBill(int customerId) {
+        register.showBill(orderNr, priceForAddedIngredient, customerId);
     }
     public void createOrder(int customerId) {
         try {
@@ -281,7 +268,7 @@ public class Restaurant {
             sql = "INSERT INTO `orders`(`customer_id`, `deliver_fee`) VALUES (" + customerId + "," +
                     "(SELECT deliver_fee.price from deliver_fee " +
                     "INNER JOIN customer ON deliver_fee.zone_nr = customer.zone_nr " +
-                    "WHERE customer.customer_id = "+ customerId +"))";
+                    "WHERE customer.customer_id = " + customerId + "))";
             statement.executeUpdate(sql);
             sql = "SELECT max(order_nr) from orders";
             ResultSet rs = statement.executeQuery(sql);

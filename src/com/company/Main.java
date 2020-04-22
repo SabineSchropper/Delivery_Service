@@ -7,7 +7,7 @@ import java.util.Scanner;
 public class Main {
 
     public static void main(String[] args) {
-        String url = "jdbc:mysql://localhost:3306/gastro?user=root";
+
         Restaurant restaurant = new Restaurant();
         Scanner scan = new Scanner (System.in);
         Scanner numberScanner = new Scanner (System.in);
@@ -24,7 +24,6 @@ public class Main {
         int customerId = 0;
         int menuNumber = 0;
         int ingredientNumber = 0;
-        int orderNumber = 0;
 
         while(isRegistrationInProgress) {
             System.out.println("Legen Sie ein Kundenkonto an (1)\noder melden Sie sich mit Ihrer Kundennummer an (2)");
@@ -126,7 +125,7 @@ public class Main {
                 }
             }
         }
-        restaurant.showBill();
+        restaurant.showBill(customerId);
     }
     public static int scanIntMethod(Scanner numberScanner){
         int number = 0;

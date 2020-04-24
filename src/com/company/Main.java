@@ -1,6 +1,9 @@
 package com.company;
 
-import java.sql.*;
+import controller.CustomerFile;
+import controller.MenuCard;
+import models.Customer;
+
 import java.util.InputMismatchException;
 import java.util.Scanner;
 
@@ -9,6 +12,8 @@ public class Main {
     public static void main(String[] args) {
 
         Restaurant restaurant = new Restaurant();
+        CustomerFile customerFile = new CustomerFile();
+        MenuCard menuCard = new MenuCard();
         Scanner scan = new Scanner (System.in);
         Scanner numberScanner = new Scanner (System.in);
         boolean isRegistrationInProgress = true;
@@ -34,14 +39,16 @@ public class Main {
                 name = scan.nextLine();
                 System.out.println("Geben Sie bitte Ihren Wohnort ein:");
                 location = scan.nextLine();
-                customerId = restaurant.addCustomerAndGetId(name,location);
+                customerId = customerFile.addCustomerAndGetId(name,location);
                 System.out.println("Sie haben ein Kundenkonto erstellt. Ihre Kundennummer lautet: "+customerId);
                 isRegistrationInProgress = false;
             }
             else if(choice.equalsIgnoreCase("2")){
+
                 System.out.println("Geben Sie bitte Ihre Kundennummer ein:");
                 customerId = scanIntMethod(numberScanner);
-                name = restaurant.getCustomerName(customerId);
+                name = customerFile.checkCustomerAndGetName(customerId);
+
                 if(!name.equalsIgnoreCase("")) {
                     System.out.println("Die Anmeldung war erfolgreich, " + name);
                     isRegistrationInProgress = false;
@@ -54,7 +61,8 @@ public class Main {
                 System.out.println("Versuchen Sie es bitte noch einmal.");
             }
         }
-        restaurant.showMenuCard();
+        menuCard.showMenuCard();
+
         while(wantsToSeeDetails) {
             System.out.println("\nMöchten Sie Zutaten ansehen? Geben Sie die Zahl neben dem Gericht ein.");
             System.out.println("Sie können Zutaten während der Bestellung verändern.");
@@ -64,7 +72,7 @@ public class Main {
                 wantsToSeeDetails = false;
             }
             else {
-                restaurant.showIngredients(menuNumber);
+                menuCard.showIngredients(menuNumber);
             }
         }
         while(isOrderInProgress){
@@ -76,9 +84,7 @@ public class Main {
                 isOrderInProgress = false;
             }
             else {
-                menuName = restaurant.getMenuName(menuNumber);
-                System.out.println(menuName +":");
-                restaurant.showIngredients(menuNumber);
+                menuCard.showIngredients(menuNumber);
                 System.out.println("\nBestellen: 1 \nZutaten verändern: 2 \nZurück: 3");
                 choice = scan.nextLine();
                 if(choice.equalsIgnoreCase("1")){

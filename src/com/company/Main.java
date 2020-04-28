@@ -1,21 +1,24 @@
 package com.company;
 
-import controller.CustomerFile;
-import controller.MenuCard;
-import models.Customer;
+import com.company.controller.CustomerController;
+import com.company.controller.IngredientController;
+import com.company.controller.MenuController;
+import com.company.controller.OrderController;
+import com.company.model.model.Change;
+import com.company.model.model.Customer;
+import com.company.model.model.Menu;
+import com.company.model.model.Order;
 
-import java.util.InputMismatchException;
+import java.util.ArrayList;
 import java.util.Scanner;
 
 public class Main {
 
     public static void main(String[] args) {
 
-        Restaurant restaurant = new Restaurant();
-        CustomerFile customerFile = new CustomerFile();
-        MenuCard menuCard = new MenuCard();
+        CustomerController customerController = new CustomerController();
+        IngredientController ingredientController = new IngredientController();
         Scanner scan = new Scanner (System.in);
-        Scanner numberScanner = new Scanner (System.in);
         boolean isRegistrationInProgress = true;
         boolean wantsToSeeDetails = true;
         boolean isOrderInProgress = true;
@@ -23,34 +26,23 @@ public class Main {
         boolean getsAdded;
         boolean getsRemoved;
         String name = "";
-        String location = "";
         String choice = "";
-        String menuName = "";
         int customerId = 0;
         int menuNumber = 0;
-        int ingredientNumber = 0;
+        Menu menu;
+        Customer customer = null;
 
         while(isRegistrationInProgress) {
-            System.out.println("Legen Sie ein Kundenkonto an (1)\noder melden Sie sich mit Ihrer Kundennummer an (2)");
-            choice = scan.nextLine();
-
+            choice = customerController.start();
             if(choice.equalsIgnoreCase("1")){
-                System.out.println("Geben Sie bitte Ihren Namen ein:");
-                name = scan.nextLine();
-                System.out.println("Geben Sie bitte Ihren Wohnort ein:");
-                location = scan.nextLine();
-                customerId = customerFile.addCustomerAndGetId(name,location);
-                System.out.println("Sie haben ein Kundenkonto erstellt. Ihre Kundennummer lautet: "+customerId);
+                customer = customerController.createAccount();
+                System.out.println("Sie haben ein Kundenkonto erstellt. Ihre Kundennummer lautet: "+customer.id);
                 isRegistrationInProgress = false;
             }
             else if(choice.equalsIgnoreCase("2")){
-
-                System.out.println("Geben Sie bitte Ihre Kundennummer ein:");
-                customerId = scanIntMethod(numberScanner);
-                name = customerFile.checkCustomerAndGetName(customerId);
-
-                if(!name.equalsIgnoreCase("")) {
-                    System.out.println("Die Anmeldung war erfolgreich, " + name);
+                customer = customerController.checkCustomerAndGetName();
+                if(customer != null) {
+                    System.out.println("Die Anmeldung war erfolgreich, " + customer.name);
                     isRegistrationInProgress = false;
                 }
                 else{
@@ -61,62 +53,54 @@ public class Main {
                 System.out.println("Versuchen Sie es bitte noch einmal.");
             }
         }
-        menuCard.showMenuCard();
+        //now we have customerId we can create an orderController and an Order
+        OrderController orderController = new OrderController(customer);
+        MenuController menuController = new MenuController();
+        menuController.showMenuCard();
 
         while(wantsToSeeDetails) {
-            System.out.println("\nMöchten Sie Zutaten ansehen? Geben Sie die Zahl neben dem Gericht ein.");
-            System.out.println("Sie können Zutaten während der Bestellung verändern.");
-            System.out.println("Zur Bestellung kommen Sie mit 0");
-            menuNumber = scanIntMethod(numberScanner);
-            if(menuNumber == 0){
-                wantsToSeeDetails = false;
-            }
-            else {
-                menuCard.showIngredients(menuNumber);
-            }
+            wantsToSeeDetails = menuController.askIfWantToSeeDetailsAndShowThem();
         }
         while(isOrderInProgress){
-            System.out.println("Welches Gericht möchten Sie bestellen?");
-            System.out.println("Sie schließen die Bestellung mit 0 ab.");
-            menuNumber = scanIntMethod(numberScanner);
+            menuNumber = orderController.askForMenuToOrder();
             if(menuNumber == 0) {
-                restaurant.calculateTotalPrice();
+                orderController.createOrder(customer);
+                orderController.calculateTotalPriceAndShowBill();
+                orderController.addOrderToDatabase();
                 isOrderInProgress = false;
             }
             else {
-                menuCard.showIngredients(menuNumber);
+                menu = menuController.showIngredients(menuNumber);
                 System.out.println("\nBestellen: 1 \nZutaten verändern: 2 \nZurück: 3");
                 choice = scan.nextLine();
                 if(choice.equalsIgnoreCase("1")){
                     isThereAChange = false;
-                    restaurant.addToOrder(customerId, isThereAChange, menuNumber);
+                    orderController.addToOrder(menu);
                 }
                 else if(choice.equalsIgnoreCase("2")){
                     isThereAChange = true;
                     while(isThereAChange) {
                         System.out.println("\nZutat entfernen: 1 \nZutat hinzufügen: 2 \nZurück: 3 \nBestellen : 4");
                         choice = scan.nextLine();
+
                         if (choice.equalsIgnoreCase("1")) {
                             getsRemoved = true;
                             getsAdded = false;
-                            System.out.println("Welche Zutat möchten Sie entfernen? Bitte Zahl eingeben.");
-                            ingredientNumber = scanIntMethod(numberScanner);
-                            restaurant.addToChanges(ingredientNumber, menuNumber, customerId, getsRemoved, getsAdded);
-                            restaurant.showChanges();
+                            orderController.handleRemovingIngredients(menuNumber,getsRemoved,getsAdded);
+
                         } else if (choice.equalsIgnoreCase("2")) {
                             getsRemoved = false;
                             getsAdded = true;
-                            restaurant.showAllIngredients();
-                            System.out.println("Welche Zutat möchten sie hinzufügen? Bitte Zahl eingeben.");
-                            ingredientNumber = scanIntMethod(numberScanner);
-                            restaurant.addToChanges(ingredientNumber, menuNumber, customerId, getsRemoved, getsAdded);
-                            restaurant.showChanges();
+                            ingredientController.showAllIngredients();
+                            orderController.handleAddingIngredients(menuNumber,getsRemoved,getsAdded);
+
                         } else if (choice.equalsIgnoreCase("3")) {
                             //when customer returns to last point the changes should be deleted
-                            restaurant.deleteThisChanges(menuNumber);
+                            orderController.deleteActualChanges(menuNumber);
                             break;
                         } else if (choice.equalsIgnoreCase("4")) {
-                            restaurant.addToOrder(customerId,isThereAChange,menuNumber);
+                            orderController.addToOrder(menu);
+                            orderController.saveChanges();
                             isThereAChange = false;
                         } else {
                             System.out.println("Die Eingabe war nicht eindeutig.");
@@ -131,16 +115,5 @@ public class Main {
                 }
             }
         }
-        restaurant.showBill(customerId);
-    }
-    public static int scanIntMethod(Scanner numberScanner){
-        int number = 0;
-        try {
-            numberScanner = new Scanner(System.in);
-            number = numberScanner.nextInt();
-        } catch (InputMismatchException ex) {
-            System.out.println("Die Eingabe muss eine Zahl sein.");
-        }
-        return number;
     }
 }

@@ -1,6 +1,5 @@
 package com.company.controller;
 
-import com.company.model.model.Ingredient;
 import com.company.model.model.Menu;
 import com.company.model.repository.MenuRepository;
 import com.company.view.MenuView;
